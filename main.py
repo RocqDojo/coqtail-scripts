@@ -55,6 +55,10 @@ class Step:
     tactic: str = ""
 
 
+def get_premises(coqtop_resp: str) -> list[str]:
+    return coqtop_resp.split("\n")[1:]
+
+
 @dataclass
 class Theorem:
     kind: str = ""
@@ -62,7 +66,7 @@ class Theorem:
     definition: str = ""
     steps: list[Step] = field(default_factory=lambda: [])
     cmds: list[str] = field(default_factory=lambda: [])
-    # premises: list[str] = field(default_factory=lambda: [])
+    premises: list[str] = field(default_factory=lambda: [])
 
 
 """
@@ -102,6 +106,12 @@ for cmd in steps:
 
             # state transition: theorem proved
             if after_state is None:
+                # extract opaque dependencies
+                _, premises, _, _ = top.query(
+                    f"Print Opaque Dependencies {thm.name}.", in_script=False
+                )
+                thm.premises = get_premises(premises)
+
                 theorems.append(thm)
                 thm = None
                 print("- done with last theorem")
