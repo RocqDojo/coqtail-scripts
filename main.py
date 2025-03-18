@@ -108,3 +108,11 @@ for cmd in steps:
 
 
 json_dump(theorems, save)
+
+jq_filter = "map(.steps[].goals |= {focused_state: .fg, background_states: .bg, shelved: .shelved, given_up: .given_up})"
+
+renamed = ""
+with open(save, "r") as f:
+    renamed = check_output(["jq", jq_filter], stdin=f)
+with open(save, "wb") as f:
+    _ = f.write(renamed)
