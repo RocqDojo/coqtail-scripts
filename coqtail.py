@@ -677,7 +677,7 @@ class Coqtail:
         for idx, goal in enumerate(goals.fg):
             if idx == 0:
                 # Print the environment only for the current goal
-                for hyp in goal.hyp:
+                for hyp in goal.context:
                     ls, hls = lines_and_highlights(hyp, len(lines))
                     lines += ls
                     highlights += hls

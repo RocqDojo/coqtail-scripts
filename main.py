@@ -1,13 +1,18 @@
 import sys
-import json
+from dataclasses import dataclass, field
 
+from subprocess import check_output
 import coqtop
 import sentences
-from xmlInterface import Goals, Goal
+from serialization import json_dump
+from xmlInterface import Goals
+
+TIMEOUT = 10
 
 top = coqtop.Coqtop()
 
 filename = sys.argv[1]
+save = filename + ".json"
 args = sys.argv[2:]
 print(f"working on [{filename}] with arguments {args}")
 lines = open(filename, "rb").readlines()
@@ -23,19 +28,51 @@ print("using coq version:", version)
     coqproject_args=args,
     use_dune=False,
     dune_compile_deps=False,
-    timeout=60,
+    timeout=TIMEOUT,
     stderr_is_warning=True,
 )
 assert err is None
 print("coqtop start message", msg)
 
+"""
+notations and naming conventions from Ruixiang
 
+(context)
+H1 : P
+H2 : P -> Q
+
+============
+
+(goal)
+Q
+"""
+
+
+@dataclass
+class Step:
+    goals: Goals
+    # when seeing (the context and goal), one should proceed with the tactic
+    tactic: str = ""
+
+
+@dataclass
 class Theorem:
-    def __init__(self) -> None:
-        self.name: str = ""
-        self.typ: str = ""
-        self.cmds: list[str] = []
-        self.states: list[Goals] = []
+    kind: str = ""
+    name: str = ""
+    definition: str = ""
+    steps: list[Step] = field(default_factory=lambda: [])
+    cmds: list[str] = field(default_factory=lambda: [])
+    # premises: list[str] = field(default_factory=lambda: [])
+
+
+"""
+Whenever Qed./Admitted./Defined. is encountered
+
+Call coqtop query:
+Print Opaque Dependencies [theorem-name]
+
+Collect the results in premises
+"""
 
 
 thm: Theorem | None = None
@@ -50,20 +87,24 @@ for cmd in steps:
     if before_state is None and after_state is not None:
         if not thm:
             thm = Theorem()
-            thm.name = cmd
-            thm.typ = cmd
-            print("+ working on theorem", cmd)
+            try:
+                thm.kind, thm.name, thm.definition = sentences.proof_meta(cmd)
+                print("+ working on", thm.kind, thm.name, thm.definition)
+            except Exception as _:
+                thm = None
+    else:
+        # update theorem recording
+        if thm:
+            thm.cmds.append(cmd)  # record the raw commands
 
-    # update theorem recording
-    if thm:
-        thm.cmds.append(cmd)
-        if after_state is not None:
-            thm.states.append(after_state)
-        # state transition: theorem proved
-        else:
-            theorems.append(thm)
-            thm = None
-            print("- done with last theorem")
+            assert before_state is not None
+            thm.steps.append(Step(before_state, cmd))
+
+            # state transition: theorem proved
+            if after_state is None:
+                theorems.append(thm)
+                thm = None
+                print("- done with last theorem")
 
 
-json.dump([thm.__dict__ for thm in theorems], open("out", "w"))
+json_dump(theorems, save)

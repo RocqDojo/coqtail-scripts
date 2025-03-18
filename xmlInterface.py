@@ -8,10 +8,10 @@ https://github.com/coq/coq/blob/master/dev/doc/xml-protocol.md
 
 # xml.dom.minidom only needed for pretty printing.
 import re
-from dataclasses import dataclass
 import subprocess
 import xml.etree.ElementTree as ET
 from abc import ABCMeta, abstractmethod
+from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 from shutil import which
@@ -30,18 +30,51 @@ from typing import (
     Union,
     cast,
 )
-from xml.dom.minidom import parseString
-from xml.parsers.expat import ExpatError, errors
 
-PPTag = str
-TaggedToken = Tuple[str, Optional[PPTag]]
+
+def stringify_tree(node):
+    """Recursively traverses the tree, stringifies each node's data, and concatenates them into a big string."""
+    if node is None:
+        return ""
+    res = ""
+    if isinstance(node, str):
+        res = node
+    elif isinstance(node, Iterable):
+        for child in node:
+            res += stringify_tree(child)  # Recursively process children
+    else:
+        res = str(node)
+    return res
+
+
+def flatten(obj):
+    if isinstance(obj, list):
+        r = []
+        for sub in obj:
+            r.extend(flatten(sub))
+        return r
+    else:
+        return [obj]
+
+
+def process_hyps(hyps) -> list[str]:
+    return [h[0] for h in flatten(hyps)]
 
 
 @dataclass
 class Goal:
-    hyp: list[str]
-    ccl: str | Sequence[TaggedToken]
-    name: str | None
+    context: list[str]
+    goal: str
+
+    # name: str | None
+    def __init__(self, hyp, ccl, *args, **kwargs):
+        import sentences
+
+        self.context = process_hyps(hyp)
+        self.goal = stringify_tree(ccl)
+
+        self.context = [sentences.purify(h) for h in self.context]
+        self.goal = sentences.purify(self.goal)
 
 
 @dataclass
@@ -50,6 +83,15 @@ class Goals:
     bg: list[list[Goal]] | None
     shelved: list[Goal] | None
     given_up: list[Goal] | None
+
+
+
+
+from xml.dom.minidom import parseString
+from xml.parsers.expat import ExpatError, errors
+
+PPTag = str
+TaggedToken = Tuple[str, Optional[PPTag]]
 
 
 class GoalMode(Enum):
