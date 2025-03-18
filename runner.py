@@ -1,6 +1,5 @@
 from pathlib import Path
-from subprocess import check_output
-from re import findall
+from subprocess import check_output, check_call
 import sys
 
 
@@ -16,14 +15,29 @@ def get_coqlib(path: Path) -> list[str] | None:
     elif p.endswith("_CoqProject"):
         coqlibs_raw = check_output(["cat", p]).decode().strip()
 
+    # main cases to handle
+    # -Q <real> <logic>
+    # -R <real> <logic>
+    # -I <real>
+    #
+    # real path need to be processed
     if coqlibs_raw:
-        pattern = r"(-\w+)\s*(\S+)\s*(\S+)"  # -Q <real-path> <logic-path>
-        res: list[str] = []
-        for tag, real_path, logical_path in findall(pattern, coqlibs_raw):
-            res.append(tag)
-            res.append(real_path)
-            res.append(logical_path)
-        return res
+        args: list[str] = []
+        fix_required = False
+        for arg in coqlibs_raw.split(" "):
+            if arg.startswith("-"):  # a real path after this argument
+                fix_required = True
+            elif fix_required:  # processing a physics path
+                arg = str(path.parent) + "/" + arg
+                fix_required = False
+            if len(arg) > 0:
+                # special case for empty strings ...
+                if arg == "''" or arg == '""':
+                    arg = ""
+                args.append(arg)
+
+        return args
+
     return None
 
 
@@ -60,4 +74,4 @@ if __name__ == "__main__":
     coqlib = get_coqlib(conf)
     assert coqlib is not None
 
-    _ = check_output(["python", "./main.py", str(coq_src)] + coqlib)
+    _ = check_call(["python", "./main.py", str(coq_src)] + coqlib)
