@@ -1,10 +1,10 @@
 from pathlib import Path
-from subprocess import check_output, check_call
+from subprocess import DEVNULL, check_output, check_call
 import sys
 
 
 def get_coqlib(path: Path) -> list[str] | None:
-    p = str(path)
+    p = path.as_posix()
     coqlibs_raw = ""
     if p.endswith("Makefile.coq.conf"):
         out = check_output(["grep", "-m1", "COQMF_COQLIBS", p]).decode().strip()
@@ -13,7 +13,14 @@ def get_coqlib(path: Path) -> list[str] | None:
         out = check_output(["grep", "-m1", "COQMF_COQLIBS", p]).decode().strip()
         coqlibs_raw = out.split("=", 1)[1]
     elif p.endswith("_CoqProject"):
-        coqlibs_raw = check_output(["cat", p]).decode().strip()
+        coqlibs_raw = (
+            check_output(["cat", p])
+            .decode()
+            .strip()
+            .replace("\n", " ")
+            .replace("\t", " ")
+            .replace("\r", "")
+        )
 
     # main cases to handle
     # -Q <real> <logic>
@@ -28,7 +35,7 @@ def get_coqlib(path: Path) -> list[str] | None:
             if arg.startswith("-"):  # a real path after this argument
                 fix_required = True
             elif fix_required:  # processing a physics path
-                arg = str(path.parent) + "/" + arg
+                arg = path.parent.as_posix() + "/" + arg
                 fix_required = False
             if len(arg) > 0:
                 # special case for empty strings ...
@@ -69,9 +76,14 @@ def coqlib_in_parents(path: Path) -> Path | None:
 
 if __name__ == "__main__":
     coq_src = Path(sys.argv[1])
-    conf = coqlib_in_parents(coq_src)
-    assert conf is not None
-    coqlib = get_coqlib(conf)
-    assert coqlib is not None
+    try:
+        conf = coqlib_in_parents(coq_src)
+        assert conf is not None
+        coqlib = get_coqlib(conf)
+        assert coqlib is not None
 
-    _ = check_call(["python", "./main.py", str(coq_src)] + coqlib)
+        _ = check_call(
+            ["python", "./main.py", coq_src.as_posix()] + coqlib, stdout=DEVNULL
+        )
+    except Exception as _:
+        print("failed", coq_src.as_posix())

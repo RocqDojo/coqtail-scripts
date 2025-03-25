@@ -7,7 +7,7 @@ import sentences
 from serialization import json_dump
 from xmlInterface import Goals
 
-TIMEOUT = 10
+TIMEOUT = 30
 
 top = coqtop.Coqtop()
 
@@ -84,7 +84,8 @@ theorems: list[Theorem] = []
 
 for cmd in steps:
     _, _, before_state, _ = top.subgoals()
-    _ = top.advance(cmd, False)
+    ok, _, _, _ = top.advance(cmd, False)
+    assert ok
     _, _, after_state, _ = top.subgoals()
 
     # state transition: start proving a theorem
