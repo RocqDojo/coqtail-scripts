@@ -37,6 +37,10 @@ def get_coqlib(path: Path) -> list[str] | None:
             elif fix_required:  # processing a physics path
                 arg = path.parent.as_posix() + "/" + arg
                 fix_required = False
+
+            if arg.endswith('.v'): # source files list in _CoqProject
+                continue
+
             if len(arg) > 0:
                 # special case for empty strings ...
                 if arg == "''" or arg == '""':
@@ -83,7 +87,9 @@ if __name__ == "__main__":
         assert coqlib is not None
 
         _ = check_call(
-            ["python", "./main.py", coq_src.as_posix()] + coqlib, stdout=DEVNULL
+            ["python", "./main.py", coq_src.as_posix()] + coqlib,
+            stdout=DEVNULL,
+            stderr=DEVNULL,
         )
     except Exception as _:
         print("failed", coq_src.as_posix())
