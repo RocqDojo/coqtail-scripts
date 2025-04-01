@@ -113,7 +113,9 @@ for cmd in steps:
                 )
                 thm.premises = get_premises(premises)
 
-                theorems.append(thm)
+                # we will not import aborted proofs
+                if 'Abort' not in cmd:
+                    theorems.append(thm)
                 thm = None
                 print("- done with last theorem")
 
