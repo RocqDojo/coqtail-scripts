@@ -58,3 +58,34 @@ def proof_meta(cmd: str) -> tuple[str, str, str]:
     assert m is not None
     kind, name, definition = m.groups()
     return (purify(kind), purify(name), purify(definition))
+
+
+def qualids(cmd: str) -> list[str]:
+    """
+    Find substrings that are potentially qualified identifiers in a command
+
+
+    See rocq reference manual for the lexical rules
+    https://rocq-prover.org/doc/V9.0.0/refman/language/core/modules.html#qualified-names
+    https://rocq-prover.org/doc/V9.0.0/refman/language/core/basic.html#grammar-token-ident
+    """
+    return re.findall(r"\b[a-zA-Z_][a-zA-Z0-9_']*(?:\.[a-zA-Z_][a-zA-Z0-9_']*)*\b", cmd)
+
+
+def test_qualids():
+    cmd = "Definition foo_bar := 42. Lemma _baz123 := True. Check Module1.SubModule2.func_name."
+    expect = [
+        "Definition",
+        "foo_bar",
+        "Lemma",
+        "_baz123",
+        "True",
+        "Check",
+        "Module1.SubModule2.func_name",
+    ]
+    result = qualids(cmd)
+    assert expect == result
+
+
+if __name__ == "__main__":
+    test_qualids()
