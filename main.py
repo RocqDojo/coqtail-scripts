@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 
 from subprocess import check_output
 import coqtop
+import queries
 import sentences
 from serialization import json_dump
 from xmlInterface import Goals
@@ -31,8 +32,8 @@ print("using coq version:", version)
     timeout=TIMEOUT,
     stderr_is_warning=True,
 )
-assert err is None
 print("coqtop start message", msg)
+assert err is None
 
 """
 notations and naming conventions from Ruixiang
@@ -55,8 +56,62 @@ class Step:
     tactic: str = ""
 
 
-def get_premises(coqtop_resp: str) -> list[str]:
-    return coqtop_resp.split("\n")[1:]
+# Some common tactic names.
+# These names should not be treated as potential lemmas
+# https://www.cs.cornell.edu/courses/cs3110/2018sp/a5/coq-tactics-cheatsheet.html
+blacklist_names: set[str] = set(
+    [
+        "intro",
+        "intros",
+        "unfold",
+        "simpl",
+        "induction",
+        "destruct",
+        "discriminate",
+        "contradiction",
+        "split",
+        "left",
+        "right",
+        "apply",
+        "assumption",
+        "eapply",
+        "exact",
+        "inversion",
+        "injection",
+        "f_equal",
+        "rewrite",
+        "change",
+        "assert",
+        "auto",
+        "trivial",
+        "intuition",
+        "eauto",
+        "reflexivity",
+        "symmetry",
+        "transitivity",
+    ]
+)
+
+# for now, external constants and construtors are extracted
+dep_kinds: set[str] = set(
+    [
+        "Constant",
+        "Constructor",
+    ]
+)
+
+
+def find_dependent_names(step: Step) -> list[queries.AboutResult]:
+    deps: list[queries.AboutResult] = []
+    qualids = sentences.qualids(step.tactic)
+    for name in qualids:
+        if name in blacklist_names:
+            continue
+        about = queries.about(top, name)
+        if about is not None and about.kind in dep_kinds:
+            deps.append(about)
+
+    return deps
 
 
 @dataclass
@@ -66,7 +121,7 @@ class Theorem:
     definition: str = ""
     steps: list[Step] = field(default_factory=lambda: [])
     cmds: list[str] = field(default_factory=lambda: [])
-    premises: list[str] = field(default_factory=lambda: [])
+    premises: list[queries.AboutResult] = field(default_factory=lambda: [])
 
 
 """
@@ -107,14 +162,17 @@ for cmd in steps:
 
             # state transition: theorem proved
             if after_state is None:
-                # extract opaque dependencies
-                _, premises, _, _ = top.query(
-                    f"Print Opaque Dependencies {thm.name}.", in_script=False
-                )
-                thm.premises = get_premises(premises)
+                if "Abort" not in cmd:
+                    uniq_deps: dict[str, queries.AboutResult] = dict()
+                    # find dependent names in every steps
+                    for step in thm.steps:
+                        for dep in find_dependent_names(step):
+                            if dep.name not in uniq_deps:
+                                uniq_deps[dep.name] = dep
+                    # remove duplications by comparing name
+                    thm.premises = list(uniq_deps.values())
 
-                # we will not import aborted proofs
-                if 'Abort' not in cmd:
+                    # we will not import aborted proofs
                     theorems.append(thm)
                 thm = None
                 print("- done with last theorem")
