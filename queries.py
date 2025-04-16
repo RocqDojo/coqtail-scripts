@@ -24,31 +24,25 @@ def about(top: coqtop.Coqtop, name: str) -> AboutResult | None:
 
 def extract_about(about_resp: str) -> AboutResult | None:
     """
-    extract fields from coqtop about output
-    name, type signature, reference term kind, and fully qualified name
+    Extract fields from coqtop about output:
+    name, type signature, reference term kind, and fully qualified name.
     """
-    name, signature, kind, full_path = None, None, None, None
-
     try:
-        match_header = re.search(r"^\s*(\w+)\s*:\s*(.*?)\n", about_resp, re.DOTALL)
-        match_expands = re.search(r"Expands to:\s*(\w+)\s+([\w\.]+)", about_resp)
+        sig, info = about_resp.strip().split("\n\n", 1)
+        name, signature = sig.split(":", 1)
+        expands = info.strip().splitlines()[-1]
+        skip = len("Expands to: ")
+        kind, full_path = expands[skip:].split(" ")
 
-        if match_header and match_expands:
-            name = match_header.group(1).strip()
-            signature = match_header.group(2).strip()
-            kind = match_expands.group(1).strip()
-            full_path = match_expands.group(2).strip()
-
-            name = sentences.purify(name)
-            signature = sentences.purify(signature)
-            kind = sentences.purify(kind)
-            full_path = sentences.purify(full_path)
-
-    except Exception as _:
-        return None
-
-    if name and signature and kind and full_path:
-        return AboutResult(name, signature, kind, full_path)
+        # remove extra spaces and new lines ...
+        name = sentences.purify(name)
+        signature = sentences.purify(signature)
+        kind = sentences.purify(kind)
+        full_path = sentences.purify(full_path)
+        if name and signature and kind and full_path:
+            return AboutResult(name, signature, kind, full_path)
+    except Exception:
+        pass
     return None
 
 
@@ -81,7 +75,8 @@ Expands to: Constant Coq.ssr.ssrclasses.reflexivity
 
 
 def test_extract_about2():
-    input_text = """add_comm : forall n m : nat, n + m = m + n
+    input_text = """add_comm : forall n m : nat,
+n + m = m + n
 
 add_comm is not universe polymorphic
 Arguments add_comm (n m)%nat_scope
