@@ -54,6 +54,7 @@ class Step:
     goals: Goals
     # when seeing (the context and goal), one should proceed with the tactic
     tactic: str = ""
+    premises: list[queries.AboutResult] = field(default_factory=lambda: [])
 
 
 # Some common tactic names.
@@ -101,9 +102,9 @@ dep_kinds: set[str] = set(
 )
 
 
-def find_dependent_names(step: Step) -> list[queries.AboutResult]:
+def find_dependent_names(cmd: str) -> list[queries.AboutResult]:
     deps: list[queries.AboutResult] = []
-    qualids = sentences.qualids(step.tactic)
+    qualids = sentences.qualids(cmd)
     for name in qualids:
         if name in blacklist_names:
             continue
@@ -121,17 +122,6 @@ class Theorem:
     definition: str = ""
     steps: list[Step] = field(default_factory=lambda: [])
     cmds: list[str] = field(default_factory=lambda: [])
-    premises: list[queries.AboutResult] = field(default_factory=lambda: [])
-
-
-"""
-Whenever Qed./Admitted./Defined. is encountered
-
-Call coqtop query:
-Print Opaque Dependencies [theorem-name]
-
-Collect the results in premises
-"""
 
 
 thm: Theorem | None = None
@@ -158,20 +148,17 @@ for cmd in steps:
             thm.cmds.append(cmd)  # record the raw commands
 
             assert before_state is not None
-            thm.steps.append(Step(before_state, cmd))
+            thm.steps.append(
+                Step(
+                    goals=before_state,  # the state on which the tactic is applied
+                    tactic=cmd,  # the tactic command
+                    premises=find_dependent_names(cmd),  # dependencies of this command
+                )
+            )
 
             # state transition: theorem proved
             if after_state is None:
                 if "Abort" not in cmd:
-                    uniq_deps: dict[str, queries.AboutResult] = dict()
-                    # find dependent names in every steps
-                    for step in thm.steps:
-                        for dep in find_dependent_names(step):
-                            if dep.name not in uniq_deps:
-                                uniq_deps[dep.name] = dep
-                    # remove duplications by comparing name
-                    thm.premises = list(uniq_deps.values())
-
                     # we will not import aborted proofs
                     theorems.append(thm)
                 thm = None
