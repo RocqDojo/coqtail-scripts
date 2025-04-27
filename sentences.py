@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 import coqtail
 import re
 
@@ -20,19 +21,26 @@ def purify(s: bytes | str) -> str:
     return re.sub(r"\s+", " ", s.decode()).strip()
 
 
-def split_sentences(lines: list[bytes]) -> list[str]:
+@dataclass
+class Sentence:
+    text: str
+    line: int
+    col: int
+
+
+def split_sentences(lines: list[bytes]) -> list[Sentence]:
     """
     split a coq source code into step sentences
     """
     sline, scol = 0, 0
-    steps: list[str] = []
+    steps: list[Sentence] = []
     try:
         while True:
             nline, ncol = next_sentence(lines, sline, scol)
-            text = get_text(lines, (sline, scol), (nline, ncol))
-            text = purify(text)
+            raw = get_text(lines, (sline, scol), (nline, ncol))
+            pure = purify(raw)
 
-            steps.append(text)
+            steps.append(Sentence(pure, sline, scol))
 
             if ncol == len(lines[nline]):
                 sline = nline + 1

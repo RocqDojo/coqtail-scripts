@@ -19,7 +19,7 @@ print(f"working on [{filename}] with arguments {args}")
 lines = open(filename, "rb").readlines()
 steps = sentences.split_sentences(lines)
 
-print(steps)
+print(*steps, sep="\n")
 
 version = top.find_coq(None, None)
 print("using coq version:", version)
@@ -55,6 +55,10 @@ class Step:
     # when seeing (the context and goal), one should proceed with the tactic
     tactic: str = ""
     premises: list[queries.AboutResult] = field(default_factory=lambda: [])
+
+    # real location in the buffer before applying this step
+    loc_line: int = 0
+    loc_col: int = 0
 
 
 # Some common tactic names.
@@ -127,7 +131,10 @@ class Theorem:
 thm: Theorem | None = None
 theorems: list[Theorem] = []
 
-for cmd in steps:
+for sentence in steps:
+    cmd = sentence.text
+    line, col = sentence.line, sentence.col
+
     _, _, before_state, _ = top.subgoals()
     ok, _, _, _ = top.advance(cmd, False)
     assert ok
@@ -153,6 +160,8 @@ for cmd in steps:
                     goals=before_state,  # the state on which the tactic is applied
                     tactic=cmd,  # the tactic command
                     premises=find_dependent_names(cmd),  # dependencies of this command
+                    loc_line=line,
+                    loc_col=col,
                 )
             )
 
