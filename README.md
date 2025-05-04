@@ -7,6 +7,29 @@ A set of python scripts that can be used to
 
 form a coq development
 
+## Usage
+
+Make sure `coqtop` can be located in `$PATH`.
+
+```bash
+# extract proof states and proof steps from $coq_src, the result is stored $coq_src.json
+python main.py $coq_src $coqtop_flags
+# run main.py but find coqtop flags in makefile or _CoqProject
+python runner.py $coq_src
+# run proof step extraction on every coq source file in $DIR directory.
+bash run-with-root.sh $DIR
+```
+
+```bash
+# test proof step generation for every proof step in $coq_src
+python tester.py $coq_src $coqtop_flags
+# similar to tester.py but coqtop flags are automatically resolved in _CoqProject or makefile
+python test-driver.py $coq_src
+# test tactic generation on every coq soruce file in $DIR directory.
+bash test-project.sh $DIR
+```
+
+
 ## Known issues
 
 - On leagacy python versions, type hinting is not supported. One have to use the `typing` package in the standard library. See [typing — Support for type hints — Python 3.13.3 documentation](https://docs.python.org/3/library/typing.html)
