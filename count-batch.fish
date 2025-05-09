@@ -12,11 +12,10 @@ set models \
 
 set root ../coqfinetuning/test_data/sf-vol12/vol1-sol/
 
+set -x MAX_ATTEMPTS 20
+
 for model in $models
-  for k in (seq 1 10)
-    set -x K $k
-    echo -n $model :
-    python count-correct.py (find $root -name "*.v.$model")
-  end
+  echo -n $model :
+  python count-pass.py (find $root -name "*.v.$model")
 end
 

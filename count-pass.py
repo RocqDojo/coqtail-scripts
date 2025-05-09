@@ -2,18 +2,22 @@ import sys
 import json
 import os
 
-# number of maximum samples allowed, pass@K
-K = int(os.environ.get("K", default="5"))
+K = int(os.environ.get("MAX_ATTEMPTS", "64"))
 
 if __name__ == "__main__":
-    passed, total = 0, 0
+    passed = [0 for _ in range(K)]
+    total = 0
     for f in sys.argv[1:]:
         for test in json.load(open(f)):
             total += 1
-            if test["succeeded"] and len(test["attempts"]) <= K:
-                passed += 1
+            if test["succeeded"]:
+                # k-th attempt succeeded
+                k = len(test["attempts"])
+                for i in range(k, K):
+                    passed[i] += 1
 
     if total > 0:
-        print(f"pass@{K} {passed}/{total}", passed / total)
+        rate = [i / total for i in passed]
+        print(rate)
     else:
         print("no result available")
