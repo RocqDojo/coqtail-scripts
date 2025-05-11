@@ -5,16 +5,16 @@ import os
 import coqtop
 import sentences
 
-from tactic_gen import RandomMock as HintGenerator
-# from tactic_gen import SftLlmQuery as HintGenerator
+# from tactic_gen import RandomMock as HintGenerator
+from tactic_gen import SftLlmQuery as HintGenerator
 
 TIMEOUT = 30
-MAX_SAMPLE = 10
+MAX_SAMPLE = int(os.environ.get("MAX_SAMPLES", "10"))
 
 top = coqtop.Coqtop()
 
 hint_generator = HintGenerator()
-result_suffix = '.' + os.environ.get("RESULT_SUFFIX", default="result")
+result_suffix = "." + os.environ.get("RESULT_SUFFIX", default="result")
 
 coq_src = sys.argv[1]
 json_records = coq_src + ".json"
@@ -23,7 +23,7 @@ args = sys.argv[2:]
 print(f"working on [{coq_src}] with arguments {args}")
 
 if os.path.exists(test_results):
-    print(f'result file {test_results} already exist, skipped')
+    print(f"result file {test_results} already exist, skipped")
 
 lines = open(coq_src, "rb").readlines()
 proofs = json.load(open(json_records))
@@ -109,10 +109,10 @@ for proof in proofs:
         hyp_text, ccl_text = "\n".join(hypothesis), "\n".join(conclusion)
 
         # sample many tactic hints and examine them
+        candidates: list[str] = hint_generator.query(hyp_text, ccl_text)
         attempts: list[str] = []
         succ = False
-        for _ in range(MAX_SAMPLE):
-            tactic = hint_generator.query(hyp_text, ccl_text)
+        for tactic in candidates:
             attempts.append(tactic)
             ok, _, _, _ = top.advance(tactic, True)
             if ok:

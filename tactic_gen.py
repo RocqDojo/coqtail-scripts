@@ -5,6 +5,7 @@ llm_model_path = os.environ.get("LLM_MODEL")
 retriver_model_path = os.environ.get("RETRIVER_MODEL")
 vector_db_path = os.environ.get("VECTOR_DB")
 device = os.environ.get("TORCH_DEVICE")
+max_samples = int(os.environ.get("MAX_SAMPLES", "10"))
 
 
 class RandomMock:
@@ -15,7 +16,7 @@ class RandomMock:
 
         self.choice = random.choice
 
-    def query(self, _hypothesis: str, _conclusion: str):
+    def query_one(self, _hypothesis: str, _conclusion: str):
         """
         get tactic hint for a proof step
         """
@@ -37,13 +38,16 @@ class RandomMock:
             ]
         )
 
+    def query(self, _hypothesis: str, _conclusion: str):
+        return [self.query_one(_hypothesis, _conclusion) for _ in range(max_samples)]
+
 
 class InputMock:
     def __init__(self, *args, **kwargs) -> None:
         _ = args
         _ = kwargs
 
-    def query(self, hypothesis: str, conclusion: str):
+    def query_one(self, hypothesis: str, conclusion: str):
         """
         get tactic hint for a proof step
         """
@@ -127,14 +131,24 @@ class SftLlmQuery:
         )
 
         inputs = self.tokenizer(new_prompt, return_tensors="pt").to(device)
-        output = self.llm_model.generate(
+
+        # decode to get 10 reponses at once
+        # https://huggingface.co/docs/transformers/v4.18.0/en/main_classes/text_generation#transformers.generation_utils.GenerationMixin
+        outputs = self.llm_model.generate(
             **inputs,
             max_new_tokens=100,
-            num_return_sequences=1,
-            do_sample=True,
-            top_p=0.85,
-            temperature=0.3,
+            num_beams=1,  # do not use beam search
+            num_return_sequences=10,
+            do_sample=True,  # generate multiple reponses
+            top_p=0.8,
+            temperature=0.7,
         )
 
-        decoded_output = self.tokenizer.decode(output[0], skip_special_tokens=True)
-        return extract_tactic(decoded_output)
+        return [
+            extract_tactic(
+                self.tokenizer.decode(o, skip_special_tokens=True)[
+                    len(new_prompt) :
+                ].strip()
+            )
+            for o in outputs
+        ]
