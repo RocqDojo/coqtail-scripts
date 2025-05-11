@@ -21,6 +21,10 @@ json_records = coq_src + ".json"
 test_results = coq_src + result_suffix
 args = sys.argv[2:]
 print(f"working on [{coq_src}] with arguments {args}")
+
+if os.path.exists(test_results):
+    print(f'result file {test_results} already exist, skipped')
+
 lines = open(coq_src, "rb").readlines()
 proofs = json.load(open(json_records))
 steps = sentences.split_sentences(lines)
