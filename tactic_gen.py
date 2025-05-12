@@ -71,11 +71,7 @@ You are assisting in proving a theorem in Coq. Below is the current state of the
 
 
 def extract_tactic(output: str) -> str:
-    prompt_endings = "### Next Proof Step:"
-
-    real_output = output.split(prompt_endings, 1)[1]
-    filtered_output = real_output.strip().split(".")[0] + "."
-    return filtered_output
+    return output.splitlines()[0]
 
 
 class SftLlmQuery:
@@ -144,11 +140,8 @@ class SftLlmQuery:
             temperature=0.7,
         )
 
-        return [
-            extract_tactic(
-                self.tokenizer.decode(o, skip_special_tokens=True)[
-                    len(new_prompt) :
-                ].strip()
-            )
-            for o in outputs
-        ]
+        def decode(out):
+            decoded = self.tokenizer.decode(o, skip_special_tokens=True)
+            return decoded[len(new_prompt) :].strip()
+
+        return [extract_tactic(decode(out)) for out in outputs]
