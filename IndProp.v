@@ -1,5 +1,5 @@
 (** * IndProp: Inductively Defined Propositions *)
-
+Print LoadPath.
 Set Warnings "-notation-overridden,-parsing,-deprecated-hint-without-locality".
 From Coq Require Import Nat.
 From Coq Require Import Lists.List.

@@ -9,26 +9,24 @@ import sentences
 from tactic_gen import SftLlmQuery as HintGenerator
 
 TIMEOUT = 30
-MAX_SAMPLE = int(os.environ.get("MAX_SAMPLES", "10"))
+MAX_SAMPLE = 10
 
 top = coqtop.Coqtop()
 
 hint_generator = HintGenerator()
-result_suffix = "." + os.environ.get("RESULT_SUFFIX", default="result")
+result_suffix = '.' + os.environ.get("RESULT_SUFFIX", default="result")
 
 coq_src = sys.argv[1]
 json_records = coq_src + ".json"
 test_results = coq_src + result_suffix
 args = sys.argv[2:]
 print(f"working on [{coq_src}] with arguments {args}")
-
-if os.path.exists(test_results):
-    print(f"result file {test_results} already exist, skipped")
-
 lines = open(coq_src, "rb").readlines()
 proofs = json.load(open(json_records))
 steps = sentences.split_sentences(lines)
 
+if os.path.exists(test_results):
+  exit(0)
 
 version = top.find_coq(None, None)
 print("using coq version:", version)
@@ -103,16 +101,17 @@ for proof in proofs:
 
         # make sure that we are working on a focused open proof
         _, msg, _, _ = top.query("Show 1.", False)
-        if not msg.startswith("goal 1 is:"):
+        if "goal 1 is:" not in msg:
             continue
         hypothesis, conclusion = parse_goal(msg)
         hyp_text, ccl_text = "\n".join(hypothesis), "\n".join(conclusion)
 
         # sample many tactic hints and examine them
-        candidates: list[str] = hint_generator.query(hyp_text, ccl_text)
+        candidates = hint_generator.query(hyp_text, ccl_text)
         attempts: list[str] = []
         succ = False
-        for tactic in candidates:
+        for i in range(MAX_SAMPLE):
+            tactic = candidates[i]
             attempts.append(tactic)
             ok, _, _, _ = top.advance(tactic, True)
             if ok:

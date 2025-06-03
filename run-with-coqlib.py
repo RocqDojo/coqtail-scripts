@@ -1,3 +1,14 @@
+"""
+brief:
+Try to locate _CoqProject/Makefile.conf.coq/Makefile.conf in parent directories
+and find the right command line arguments to supply to coqtop.
+Then run a python script with the coqtop flags
+
+usage: python run-with-coqlib extract.py /opt/coqgym/coq_projects/compcert/common/AST.v
+This will start a process running
+python extract.py /opt/coqgym/coq_projects/compcert/common/AST.v -Q compcert /opt/coqgym/coq_projects/compcert
+"""
+
 from pathlib import Path
 from subprocess import DEVNULL, check_output, check_call
 import sys
@@ -38,7 +49,7 @@ def get_coqlib(path: Path) -> list[str] | None:
                 arg = path.parent.as_posix() + "/" + arg
                 fix_required = False
 
-            if arg.endswith('.v'): # source files list in _CoqProject
+            if arg.endswith(".v"):  # source files list in _CoqProject
                 continue
 
             if len(arg) > 0:
@@ -79,17 +90,19 @@ def coqlib_in_parents(path: Path) -> Path | None:
 
 
 if __name__ == "__main__":
-    coq_src = Path(sys.argv[1])
+    script = Path(sys.argv[1])
+    coq_src = Path(sys.argv[2])
     try:
         conf = coqlib_in_parents(coq_src)
         assert conf is not None
         coqlib = get_coqlib(conf)
         assert coqlib is not None
 
+        print("starting", script.as_posix(), "on", coq_src.as_posix())
         _ = check_call(
-            ["python", "./main.py", coq_src.as_posix()] + coqlib,
+            ["python", script.as_posix(), coq_src.as_posix()] + coqlib,
             stdout=DEVNULL,
             stderr=DEVNULL,
         )
-    except Exception as _:
+    except Exception as e:
         print("failed", coq_src.as_posix())

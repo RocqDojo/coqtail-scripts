@@ -1,7 +1,13 @@
+'''
+brief: extract proof steps of proof scripts in one coq source code file
+proof steps from partial-maps.v will be stored in partial-maps.v.json
+
+usage: python extract.py <source code file> [coqtop arg0] [coqtop arg1] ...
+'''
+
 import sys
 from dataclasses import dataclass, field
 
-from subprocess import check_output
 import coqtop
 import queries
 import sentences
@@ -34,19 +40,6 @@ print("using coq version:", version)
 )
 print("coqtop start message", msg)
 assert err is None
-
-"""
-notations and naming conventions from Ruixiang
-
-(context)
-H1 : P
-H2 : P -> Q
-
-============
-
-(goal)
-Q
-"""
 
 
 @dataclass
@@ -135,10 +128,10 @@ for sentence in steps:
     cmd = sentence.text
     line, col = sentence.line, sentence.col
 
-    _, _, before_state, _ = top.subgoals()
+    _, _, before_state, _ = top.goals()
     ok, _, _, _ = top.advance(cmd, False)
     assert ok
-    _, _, after_state, _ = top.subgoals()
+    _, _, after_state, _ = top.goals()
 
     # state transition: start proving a theorem
     if before_state is None and after_state is not None:
@@ -175,11 +168,3 @@ for sentence in steps:
 
 
 json_dump(theorems, save)
-
-jq_filter = "map(.steps[].goals |= {focused_state: .fg, background_states: .bg, shelved: .shelved, given_up: .given_up})"
-
-renamed = ""
-with open(save, "r") as f:
-    renamed = check_output(["jq", jq_filter], stdin=f)
-with open(save, "wb") as f:
-    _ = f.write(renamed)
